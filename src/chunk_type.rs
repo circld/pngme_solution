@@ -1,10 +1,9 @@
-use std::char::CharTryFromError;
+use std::cmp::PartialEq;
 use std::convert::TryFrom;
-use std::num::NonZeroU8;
-// use std::str::FromStr;
-// use std::str::Utf8Error;
+use std::str::FromStr;
+use std::str::Utf8Error;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct ChunkType {
     value: [char; 4],
 }
@@ -14,6 +13,7 @@ impl ChunkType {
         ChunkType { value }
     }
 
+    #[allow(dead_code)]
     fn bytes(&self) -> [u8; 4] {
         let mut bytes = [0; 4];
 
@@ -23,45 +23,61 @@ impl ChunkType {
         bytes
     }
 
+    #[allow(dead_code)]
     fn is_valid(&self) -> bool {
         todo!()
     }
 
+    #[allow(dead_code)]
     fn is_critical(&self) -> bool {
         todo!()
     }
 
+    #[allow(dead_code)]
     fn is_public(&self) -> bool {
         todo!()
     }
 
+    #[allow(dead_code)]
     fn is_reserved_bit_valid(&self) -> bool {
         todo!()
     }
 
+    #[allow(dead_code)]
     fn is_safe_to_copy(&self) -> bool {
         todo!()
     }
 }
 
-// impl FromStr for ChunkType {
-//     type Err = Utf8Error;
-//
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         s.as_bytes()
-//     }
-// }
+impl FromStr for ChunkType {
+    // TODO raise custom error for invalid characters (e.g., non-alpha)
+    type Err = Utf8Error;
 
-// need more practice with `Result` return types and error-handling
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parsed: [char; 4] = [' ', ' ', ' ', ' '];
+
+        for value in s.chars().enumerate() {
+            parsed[value.0] = value.1;
+        }
+        Ok(Self::new(parsed))
+    }
+}
+
 impl TryFrom<[u8; 4]> for ChunkType {
-    type Error = CharTryFromError;
+    type Error = &'static str;
 
     fn try_from(values: [u8; 4]) -> Result<Self, Self::Error> {
         let mut parsed: [char; 4] = [' ', ' ', ' ', ' '];
 
         for value in values.iter().enumerate() {
-            if let Ok(parsed_value) = char::try_from(*value.1) {
-                parsed[value.0] = parsed_value;
+            let int_value = *value.1 as i8;
+            let is_valid = (65..=90).contains(&int_value) | (97..=122).contains(&int_value);
+            match char::try_from(*value.1) {
+                Ok(c) if is_valid => {
+                    parsed[value.0] = c;
+                }
+                Ok(_) => return Err("Illegal u8 value: must fall between 65-90 or 97-100."),
+                Err(_) => return Err("Could not parse values into chars."),
             }
         }
         Ok(Self::new(parsed))
@@ -71,8 +87,6 @@ impl TryFrom<[u8; 4]> for ChunkType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryFrom;
-    //    use std::str::FromStr;
 
     #[test]
     pub fn test_chunk_type_from_bytes() {
@@ -82,13 +96,23 @@ mod tests {
         assert_eq!(expected, actual.bytes());
     }
 
-    //    #[test]
-    //    pub fn test_chunk_type_from_str() {
-    //        let expected = ChunkType::try_from([82, 117, 83, 116]).unwrap();
-    //        let actual = ChunkType::from_str("RuSt").unwrap();
-    //        assert_eq!(expected, actual);
-    //    }
-    //
+    #[test]
+    pub fn test_chunk_type_from_bytes_invalid() {
+        let actual = ChunkType::try_from([50, 92, 123, 116]);
+        assert!(actual.is_err());
+        assert_eq!(
+            actual,
+            Err("Illegal u8 value: must fall between 65-90 or 97-100.")
+        );
+    }
+
+    #[test]
+    pub fn test_chunk_type_from_str_valid() {
+        let expected = ChunkType::try_from([82, 117, 83, 116]).unwrap();
+        let actual = ChunkType::from_str("RuSt").unwrap();
+        assert_eq!(expected, actual);
+    }
+
     //    #[test]
     //    pub fn test_chunk_type_is_critical() {
     //        let chunk = ChunkType::from_str("RuSt").unwrap();
