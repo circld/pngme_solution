@@ -1,7 +1,20 @@
 use std::cmp::PartialEq;
 use std::convert::TryFrom;
+use std::fmt;
 use std::str::FromStr;
-use std::str::Utf8Error;
+
+#[derive(Debug, PartialEq)]
+struct InvalidChunkTypeByteValue {
+    value: u8,
+}
+
+impl std::error::Error for InvalidChunkTypeByteValue {}
+
+impl fmt::Display for InvalidChunkTypeByteValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Invalid byte value for a ChunkType: {}", self.value)
+    }
+}
 
 #[derive(Debug, PartialEq)]
 struct ChunkType {
@@ -51,20 +64,20 @@ impl ChunkType {
 
 impl FromStr for ChunkType {
     // TODO raise custom error for invalid characters (e.g., non-alpha)
-    type Err = Utf8Error;
+    type Err = InvalidChunkTypeByteValue;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parsed: [char; 4] = [' ', ' ', ' ', ' '];
+        let mut parsed: [u8; 4] = [0, 0, 0, 0];
 
         for value in s.chars().enumerate() {
-            parsed[value.0] = value.1;
+            parsed[value.0] = value.1 as u8;
         }
-        Ok(Self::new(parsed))
+        Self::try_from(parsed)
     }
 }
 
 impl TryFrom<[u8; 4]> for ChunkType {
-    type Error = &'static str;
+    type Error = InvalidChunkTypeByteValue;
 
     fn try_from(values: [u8; 4]) -> Result<Self, Self::Error> {
         let mut parsed: [char; 4] = [' ', ' ', ' ', ' '];
@@ -72,13 +85,13 @@ impl TryFrom<[u8; 4]> for ChunkType {
         for value in values.iter().enumerate() {
             let int_value = *value.1 as i8;
             let is_valid = (65..=90).contains(&int_value) | (97..=122).contains(&int_value);
-            match char::try_from(*value.1) {
-                Ok(c) if is_valid => {
-                    parsed[value.0] = c;
-                }
-                Ok(_) => return Err("Illegal u8 value: must fall between 65-90 or 97-100."),
-                Err(_) => return Err("Could not parse values into chars."),
-            }
+            let parsed_value = *value.1 as char;
+
+            parsed[value.0] = if is_valid {
+                parsed_value
+            } else {
+                return Err(InvalidChunkTypeByteValue { value: *value.1 });
+            };
         }
         Ok(Self::new(parsed))
     }
@@ -100,16 +113,20 @@ mod tests {
     pub fn test_chunk_type_from_bytes_invalid() {
         let actual = ChunkType::try_from([50, 92, 123, 116]);
         assert!(actual.is_err());
-        assert_eq!(
-            actual,
-            Err("Illegal u8 value: must fall between 65-90 or 97-100.")
-        );
+        assert_eq!(actual.unwrap_err(), InvalidChunkTypeByteValue { value: 50 });
     }
 
     #[test]
     pub fn test_chunk_type_from_str_valid() {
         let expected = ChunkType::try_from([82, 117, 83, 116]).unwrap();
         let actual = ChunkType::from_str("RuSt").unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    pub fn test_chunk_type_from_str_invalid() {
+        let expected = InvalidChunkTypeByteValue { value: 37 };
+        let actual = ChunkType::from_str("%uSt").unwrap_err();
         assert_eq!(expected, actual);
     }
 

@@ -5,6 +5,8 @@ in pkgs.mkShell {
     buildInputs = [ pkgs.rustc
                     pkgs.cargo
                     pkgs.libiconv
+                    pkgs.rls
+                    pkgs.clippy
                     frameworks.Security
                     frameworks.CoreFoundation
                     frameworks.CoreServices
