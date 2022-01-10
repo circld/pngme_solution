@@ -8,5 +8,5 @@ Took a bit of searching before I could get everything compiling correctly. Ultim
 
 ## TODO
 
-- [ ] chapter 1: adopt `?` idiom where possible
-- [ ] chapter 1: define custom error(s)
+- [x] chapter 1: adopt `?` idiom where possible
+- [x] chapter 1: define custom error(s)
